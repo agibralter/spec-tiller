@@ -34,4 +34,8 @@ namespace :spec_tiller do
 
   end
 
+  task :generate_shell_script do
+    SyncSpecFiles.generate_shell_script
+  end
+
 end

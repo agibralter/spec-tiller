@@ -26,7 +26,7 @@ module SyncSpecFiles
 
   module_function :rewrite_travis_content
 
-  def self.sync
+  def self.sync(git_add=true)
     content = YAML::load(File.open('.travis.yml'))
     current_file_list = Dir.glob('spec/**/*_spec.rb').map { |file_path| file_path.slice(/(spec\/\S+$)/) }
 
@@ -37,7 +37,32 @@ module SyncSpecFiles
       puts SyncSpecFiles.file_diff(original, current_file_list)
     end
 
-    `git add .travis.yml`
+    `git add .travis.yml` if git_add
+  end
+
+  def self.generate_shell_script
+    content = YAML::load(File.open('.travis.yml'))
+    env_matrix = BuildMatrixParser.parse_env_matrix(content)
+
+    require 'pry'; binding.pry
+    buckets = Array.new(env_matrix.length, [])
+    current_file_list = Dir.glob('spec/**/*_spec.rb').map do |file_path|
+      file_path.slice(/(spec\/\S+$)/)
+    end
+    current_file_list.each do |spec_file|
+      bucket_index = rand(buckets.length)
+      buckets[bucket_index] << spec_file
+    end
+    current_env = ENV["SPEC_TILLER"] && ENV["SPEC_TILLER"].to_i
+    if !current_env || !current_env.between?(0, buckets.length - 1)
+      current_env = rand(buckets.length)
+    end
+    file_list = buckets[current_env].join(' ')
+
+
+    File.open('set_test_suite.sh', 'w') do |f|
+      f.puts "export TEST_SUITE=\"#{file_list}\""
+    end
   end
 
   def self.get_ignored_specs(content)
